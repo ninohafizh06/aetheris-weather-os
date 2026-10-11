@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Header from '../components/Header';
 import WeatherCanvas from '../components/WeatherCanvas';
 import AlertBanner from '../components/AlertBanner';
-import CurrentWeatherCard from '../components/CurrentWeatherCard';
-import MetricsGrid from '../components/MetricsGrid';
-import SolarCycleCard from '../components/SolarCycleCard';
-import HourlyForecastChart from '../components/HourlyForecastChart';
-import DailyForecastList from '../components/DailyForecastList';
+import WindowChrome from '../components/WindowChrome';
+import TopNavbar from '../components/TopNavbar';
+import Sidebar from '../components/Sidebar';
+import TopHeroCards from '../components/TopHeroCards';
+import ActiveStationHero from '../components/ActiveStationHero';
+import BottomMetricsRow from '../components/BottomMetricsRow';
 import TelemetryLogsTable from '../components/TelemetryLogsTable';
 import HardwareModal from '../components/HardwareModal';
 import ThresholdModal from '../components/ThresholdModal';
@@ -26,6 +26,8 @@ export default function Home() {
   const [weatherData, setWeatherData] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isGeoLoading, setIsGeoLoading] = useState(false);
+  const [activeNav, setActiveNav] = useState('dashboard');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // IoT Simulation & Live Telemetry
   const [telemetryLogs, setTelemetryLogs] = useState([]);
@@ -55,9 +57,7 @@ export default function Home() {
       const currentCode = data.current?.weather_code ?? 1;
       const isDay = data.current?.is_day ?? 1;
 
-      // Format 24-hr hourly
       const hourlyList = [];
-      const nowHour = new Date().getHours();
       if (data.hourly?.time) {
         for (let i = 0; i < Math.min(24, data.hourly.time.length); i++) {
           const tStr = data.hourly.time[i];
@@ -75,7 +75,6 @@ export default function Home() {
         }
       }
 
-      // Format 7-day daily
       const dailyList = [];
       const dayNamesId = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
       const dayNamesEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -87,7 +86,6 @@ export default function Home() {
             ? (lang === 'id' ? 'Hari Ini' : 'Today')
             : (lang === 'id' ? dayNamesId[dateObj.getDay()] : dayNamesEn[dateObj.getDay()]);
           const code = data.daily.weather_code?.[d] ?? 1;
-
           dailyList.push({
             dateStr: data.daily.time[d],
             dayLabel: dayName,
@@ -147,12 +145,10 @@ export default function Home() {
     }
   }, [lang]);
 
-  // Initial load
   useEffect(() => {
     fetchWeatherData(selectedCity);
   }, [selectedCity, fetchWeatherData]);
 
-  // Fetch initial telemetry logs from /api/telemetry
   useEffect(() => {
     async function loadTelemetry() {
       try {
@@ -161,31 +157,20 @@ export default function Home() {
         if (json.success && json.history) {
           setTelemetryLogs(json.history);
         }
-      } catch (e) {
-        // Fallback default logs
-      }
+      } catch (e) { /* silent */ }
     }
     loadTelemetry();
   }, []);
 
-  // IoT Live Telemetry Stream Interval
   useEffect(() => {
     if (!isStreaming) return;
-
     const interval = setInterval(() => {
       setTelemetryLogs((prev) => {
         const last = prev[0] || {
-          temperature: 29.5,
-          humidity: 74,
-          pressure: 1011.5,
-          windSpeed: 14.0,
-          windDirection: 145,
-          rainRate: 0.0,
-          pm25: 20.0,
-          batteryVoltage: 4.12
+          temperature: 29.5, humidity: 74, pressure: 1011.5,
+          windSpeed: 14.0, windDirection: 145, rainRate: 0.0,
+          pm25: 20.0, batteryVoltage: 4.12
         };
-
-        // Realistic subtle micro-variations
         const newTemp = Math.round((last.temperature + (Math.random() - 0.49) * 0.4) * 10) / 10;
         const newHum = Math.min(98, Math.max(40, Math.round(last.humidity + (Math.random() - 0.5) * 1.5)));
         const newPres = Math.round((last.pressure + (Math.random() - 0.5) * 0.2) * 10) / 10;
@@ -194,28 +179,16 @@ export default function Home() {
         const newRain = Math.max(0, Math.round((last.rainRate + (Math.random() > 0.85 ? (Math.random() - 0.4) * 0.5 : 0)) * 10) / 10);
         const newPM = Math.round((Math.max(5, last.pm25 + (Math.random() - 0.48) * 0.8)) * 10) / 10;
         const newBatt = Math.round((Math.max(3.6, last.batteryVoltage - 0.0001)) * 100) / 100;
-
         let status = 'NORMAL';
-        if (newTemp > thresholds.maxTemp || newWind > thresholds.maxWind || newRain > thresholds.maxRain || newPM > thresholds.maxPM25) {
-          status = 'WARNING';
-        }
-
+        if (newTemp > thresholds.maxTemp || newWind > thresholds.maxWind || newRain > thresholds.maxRain || newPM > thresholds.maxPM25) status = 'WARNING';
+        const riskPrediction = newTemp >= 26.5 ? 'Tinggi' : (newTemp >= 25.0 ? 'Sedang' : 'Rendah');
         const newPacket = {
-          id: (prev[0]?.id || 0) + 1,
-          stationId: 'ESP32-WX-CAPSTONE',
+          id: (prev[0]?.id || 0) + 1, stationId: 'ESP32-WX-CAPSTONE',
           timestamp: new Date().toLocaleTimeString('id-ID'),
-          temperature: newTemp,
-          humidity: newHum,
-          pressure: newPres,
-          windSpeed: newWind,
-          windDirection: newDir,
-          rainRate: newRain,
-          pm25: newPM,
-          batteryVoltage: newBatt,
-          status
+          temperature: newTemp, humidity: newHum, pressure: newPres,
+          windSpeed: newWind, windDirection: newDir, rainRate: newRain,
+          pm25: newPM, batteryVoltage: newBatt, status, riskPrediction
         };
-
-        // If in IoT Mode, update the main current card view too!
         if (activeMode === 'iot') {
           setWeatherData((prevW) => {
             if (!prevW) return prevW;
@@ -223,135 +196,33 @@ export default function Home() {
               ...prevW,
               city: 'Stasiun IoT ESP32 (Laboratorium)',
               province: 'Hardware Sensor Node',
-              current: {
-                ...prevW.current,
-                temperature: newTemp,
-                humidity: newHum,
-                pressure: newPres,
-                windSpeed: newWind,
-                windDirection: newDir,
-                rainRate: newRain,
-                pm25: newPM,
-                batteryVoltage: newBatt,
-                stationId: 'ESP32-NODE-01',
-                updatedAt: newPacket.timestamp
-              }
+              current: { ...prevW.current, temperature: newTemp, humidity: newHum, pressure: newPres, windSpeed: newWind, windDirection: newDir, rainRate: newRain, pm25: newPM, batteryVoltage: newBatt, stationId: 'ESP32-NODE-01', riskPrediction, updatedAt: newPacket.timestamp }
             };
           });
         }
-
         return [newPacket, ...prev.slice(0, 49)];
       });
     }, 3500);
-
     return () => clearInterval(interval);
   }, [isStreaming, activeMode, thresholds]);
 
-  // Check and update alerts
   useEffect(() => {
     if (!weatherData) return;
     const cur = weatherData.current;
     const activeAlerts = [];
-
-    if (cur.temperature > thresholds.maxTemp) {
-      activeAlerts.push({
-        title: lang === 'id' ? 'Suhu Udara Ekstrem' : 'Extreme Heat Alert',
-        message: lang === 'id' ? `Suhu terukur ${cur.temperature}°C melampaui batas aman (${thresholds.maxTemp}°C). Bahaya dehidrasi.` : `Temperature reached ${cur.temperature}°C, exceeding limit.`,
-        level: 'SIAGA SUHU'
-      });
-    }
-
-    if (cur.windSpeed > thresholds.maxWind) {
-      activeAlerts.push({
-        title: lang === 'id' ? 'Peringatan Angin Kencang' : 'High Wind Warning',
-        message: lang === 'id' ? `Kecepatan angin ${cur.windSpeed} km/h berisiko menerbangkan benda ringan.` : `Wind gusts at ${cur.windSpeed} km/h detected.`,
-        level: 'WASPADA ANGIN'
-      });
-    }
-
-    if (cur.rainRate > thresholds.maxRain) {
-      activeAlerts.push({
-        title: lang === 'id' ? 'Peringatan Hujan Lebat' : 'Heavy Rain Warning',
-        message: lang === 'id' ? `Intensitas hujan ${cur.rainRate} mm/jam berpotensi menyebabkan genangan air.` : `Heavy precipitation detected: ${cur.rainRate} mm/h.`,
-        level: 'SIAGA BANJIR'
-      });
-    }
-
-    if (cur.weatherCode >= 95) {
-      activeAlerts.push({
-        title: lang === 'id' ? 'Peringatan Badai Petir' : 'Thunderstorm Alert',
-        message: lang === 'id' ? 'Aktivitas petir dan kilat terdeteksi di sekitar stasiun pemantau.' : 'Lightning activity detected.',
-        level: 'AWAS PETIR'
-      });
-    }
-
+    if (cur.temperature > thresholds.maxTemp) activeAlerts.push({ title: lang === 'id' ? 'Suhu Udara Ekstrem' : 'Extreme Heat Alert', message: lang === 'id' ? `Suhu terukur ${cur.temperature}Â°C melampaui batas aman (${thresholds.maxTemp}Â°C).` : `Temperature reached ${cur.temperature}Â°C.`, level: 'SIAGA SUHU' });
+    if (cur.windSpeed > thresholds.maxWind) activeAlerts.push({ title: lang === 'id' ? 'Peringatan Angin Kencang' : 'High Wind Warning', message: lang === 'id' ? `Kecepatan angin ${cur.windSpeed} km/h berisiko tinggi.` : `Wind gusts at ${cur.windSpeed} km/h.`, level: 'WASPADA ANGIN' });
+    if (cur.rainRate > thresholds.maxRain) activeAlerts.push({ title: lang === 'id' ? 'Peringatan Hujan Lebat' : 'Heavy Rain Warning', message: lang === 'id' ? `Intensitas hujan ${cur.rainRate} mm/jam.` : `Precipitation: ${cur.rainRate} mm/h.`, level: 'SIAGA BANJIR' });
+    if (cur.weatherCode >= 95) activeAlerts.push({ title: lang === 'id' ? 'Peringatan Badai Petir' : 'Thunderstorm Alert', message: lang === 'id' ? 'Aktivitas petir terdeteksi.' : 'Lightning activity detected.', level: 'AWAS PETIR' });
     setAlerts(activeAlerts);
   }, [weatherData, thresholds, lang]);
 
-  // Geolocation trigger
-  const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      alert(lang === 'id' ? 'Geolokasi tidak didukung oleh browser Anda' : 'Geolocation is not supported');
-      return;
-    }
-    setIsGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const customLoc = {
-          id: 'user-loc',
-          name: lang === 'id' ? 'Lokasi Perangkat Anda' : 'Your Device Location',
-          province: 'GPS Koordinator',
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          timezone: 'auto'
-        };
-        setSelectedCity(customLoc);
-        setIsGeoLoading(false);
-      },
-      () => {
-        alert(lang === 'id' ? 'Gagal mendapatkan izin GPS' : 'Failed to retrieve GPS location');
-        setIsGeoLoading(false);
-      }
-    );
-  };
-
-  // Anomaly Injection button action
   const handleInjectAnomaly = () => {
     setTelemetryLogs((prev) => {
-      const anomalyPacket = {
-        id: (prev[0]?.id || 0) + 1,
-        stationId: 'ESP32-WX-CAPSTONE',
-        timestamp: new Date().toLocaleTimeString('id-ID'),
-        temperature: 23.4,
-        humidity: 97,
-        pressure: 1002.4,
-        windSpeed: 52.8,
-        windDirection: 215,
-        rainRate: 34.6,
-        pm25: 88.0,
-        batteryVoltage: 3.98,
-        status: 'CRITICAL'
-      };
-
+      const anomalyPacket = { id: (prev[0]?.id || 0) + 1, stationId: 'ESP32-WX-CAPSTONE', timestamp: new Date().toLocaleTimeString('id-ID'), temperature: 23.4, humidity: 97, pressure: 1002.4, windSpeed: 52.8, windDirection: 215, rainRate: 34.6, pm25: 88.0, batteryVoltage: 3.98, status: 'CRITICAL' };
       if (activeMode === 'iot') {
-        setWeatherData((prevW) => ({
-          ...prevW,
-          current: {
-            ...prevW.current,
-            temperature: 23.4,
-            humidity: 97,
-            pressure: 1002.4,
-            windSpeed: 52.8,
-            windDirection: 215,
-            rainRate: 34.6,
-            pm25: 88.0,
-            weatherCode: 95,
-            condition: interpretWeatherCode(95, 1, lang),
-            updatedAt: anomalyPacket.timestamp
-          }
-        }));
+        setWeatherData((prevW) => ({ ...prevW, current: { ...prevW.current, temperature: 23.4, humidity: 97, pressure: 1002.4, windSpeed: 52.8, windDirection: 215, rainRate: 34.6, pm25: 88.0, weatherCode: 95, condition: interpretWeatherCode(95, 1, lang), updatedAt: anomalyPacket.timestamp } }));
       }
-
       return [anomalyPacket, ...prev];
     });
   };
@@ -361,96 +232,96 @@ export default function Home() {
 
   return (
     <div className="app-container">
-      {/* Background Animated Atmosphere */}
+      {/* Atmospheric animated background */}
       <WeatherCanvas weatherType={weatherType} isDay={isDay} />
 
-      <main className="dashboard-content-layer">
-        {/* Header Navigation & Global Controls */}
-        <Header
-          selectedCity={selectedCity}
-          onSelectCity={setSelectedCity}
-          onUseCurrentLocation={handleUseCurrentLocation}
-          isGeoLoading={isGeoLoading}
+      <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        {/* OS Window Chrome bar */}
+        <WindowChrome />
+
+        {/* Top Navigation Bar */}
+        <TopNavbar
           activeMode={activeMode}
-          onChangeMode={(mode) => {
-            setActiveMode(mode);
-            if (mode === 'meteo') {
-              fetchWeatherData(selectedCity);
-            }
-          }}
-          unit={unit}
-          onToggleUnit={() => setUnit(unit === 'C' ? 'F' : 'C')}
-          lang={lang}
-          onToggleLang={() => setLang(lang === 'id' ? 'en' : 'id')}
-          onRefresh={() => fetchWeatherData(selectedCity)}
-          isRefreshing={isRefreshing}
-          onOpenHardwareModal={() => setIsHardwareModalOpen(true)}
-          onOpenThresholdModal={() => setIsThresholdModalOpen(true)}
-        />
-
-        {/* Dynamic Warning Alert Banner */}
-        <AlertBanner
-          alerts={alerts}
-          soundEnabled={soundEnabled}
-          onToggleSound={() => setSoundEnabled(!soundEnabled)}
-        />
-
-        {/* Primary Dashboard Grid: Left Column (Hero & Solar) + Right Column (Metrics, Chart, Daily) */}
-        <div className="dashboard-grid">
-          {/* Left Column */}
-          <div className="column-stack">
-            <CurrentWeatherCard
-              weatherData={weatherData}
-              unit={unit}
-              activeMode={activeMode}
-              lang={lang}
-            />
-
-            <SolarCycleCard
-              solarData={weatherData?.solar}
-              lang={lang}
-            />
-          </div>
-
-          {/* Right Column */}
-          <div className="column-stack">
-            <MetricsGrid
-              weatherData={weatherData}
-              lang={lang}
-            />
-
-            <HourlyForecastChart
-              hourly={weatherData?.hourly}
-              unit={unit}
-              lang={lang}
-            />
-
-            <DailyForecastList
-              daily={weatherData?.daily}
-              unit={unit}
-              lang={lang}
-            />
-          </div>
-        </div>
-
-        {/* Live IoT Sensor Telemetry Logs & Export Table */}
-        <TelemetryLogsTable
-          logs={telemetryLogs}
-          isStreaming={isStreaming}
-          onToggleStreaming={() => setIsStreaming(!isStreaming)}
           onInjectAnomaly={handleInjectAnomaly}
-          lang={lang}
+          onOpenThresholdModal={() => setIsThresholdModalOpen(true)}
+          alertCount={alerts.length}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
-      </main>
 
-      {/* Hardware Documentation & ESP32 Code Modal */}
+        {/* Alert Banner (only when alerts exist) */}
+        {alerts.length > 0 && (
+          <AlertBanner
+            alerts={alerts}
+            soundEnabled={soundEnabled}
+            onToggleSound={() => setSoundEnabled(!soundEnabled)}
+          />
+        )}
+
+        {/* Main Layout: Sidebar + Content Area */}
+        <div className="app-layout-wrapper">
+          {/* Left Sidebar: Mode toggle, Nav, Active Stations */}
+          <Sidebar
+            activeMode={activeMode}
+            onChangeMode={(mode) => {
+              setActiveMode(mode);
+              if (mode === 'meteo') fetchWeatherData(selectedCity);
+            }}
+            selectedCity={selectedCity}
+            onSelectCity={(city) => {
+              setActiveMode('meteo');
+              setSelectedCity(city);
+            }}
+            onOpenHardwareModal={() => setIsHardwareModalOpen(true)}
+            activeNav={activeNav}
+            onSelectNav={setActiveNav}
+          />
+
+          {/* Main Content Area */}
+          <main className="dashboard-main-area">
+            {/* Row 1: 3 Parameter Stat Cards + 1 Purple Hero Action Card */}
+            <TopHeroCards
+              weatherData={weatherData}
+              unit={unit}
+              onToggleUnit={() => setUnit(unit === 'C' ? 'F' : 'C')}
+              onOpenThresholdModal={() => setIsThresholdModalOpen(true)}
+              onInjectAnomaly={handleInjectAnomaly}
+              lang={lang}
+            />
+
+            {/* Row 2: Active Station Big Panel (big temp + solar slider) */}
+            <ActiveStationHero
+              weatherData={weatherData}
+              activeMode={activeMode}
+              unit={unit}
+              onToggleUnit={() => setUnit(unit === 'C' ? 'F' : 'C')}
+              onRefresh={() => fetchWeatherData(selectedCity)}
+              isRefreshing={isRefreshing}
+              onOpenHardwareModal={() => setIsHardwareModalOpen(true)}
+              lang={lang}
+            />
+
+            {/* Row 3: Bottom 4-column Metric Boxes */}
+            <BottomMetricsRow weatherData={weatherData} lang={lang} />
+
+            {/* Row 4: Live IoT Telemetry Log Table */}
+            <TelemetryLogsTable
+              logs={telemetryLogs}
+              isStreaming={isStreaming}
+              onToggleStreaming={() => setIsStreaming(!isStreaming)}
+              onInjectAnomaly={handleInjectAnomaly}
+              lang={lang}
+            />
+          </main>
+        </div>
+      </div>
+
+      {/* Modals */}
       <HardwareModal
         isOpen={isHardwareModalOpen}
         onClose={() => setIsHardwareModalOpen(false)}
         lang={lang}
       />
-
-      {/* Threshold Alarms Settings Modal */}
       <ThresholdModal
         isOpen={isThresholdModalOpen}
         onClose={() => setIsThresholdModalOpen(false)}

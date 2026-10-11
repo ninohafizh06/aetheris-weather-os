@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Model untuk data telemetri live dari sensor ESP32 / IoT
+model TelemetryLog {
+  id                Int      @id @default(autoincrement())
+  createdAt         DateTime @default(now()) @map("created_at")
+  stationId         String   @default("AETHERIS-ALPHA-01") @map("station_id")
+  temperature       Float
+  humidity          Float
+  pressure          Float
+  windSpeed         Float    @map("wind_speed")
+  rainLevel         Float    @default(0.0) @map("rain_level")
+  uvIndex           Float    @default(0.0) @map("uv_index")
+  battery           Float    @default(100.0)
+  weatherPrediction String?  @map("weather_prediction")
+  confidence        Float?
+  riskPrediction    String?  @map("risk_prediction")
+
+  @@map("telemetry_logs")
+}
+
+// Model untuk dataset historis NASA POWER
+model WeatherHistory {
+  id          Int      @id @default(autoincrement())
+  year        Int
+  doy         Int
+  temperature Float    @map("t2m")
+  humidity    Float    @map("rh2m")
+  windSpeed   Float    @map("ws2m")
+  weatherLabel String? @map("weather_label")
+
+  @@map("weather_history")
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Link2,
   Share2,
@@ -46,11 +46,19 @@ export default function ActiveStationHero({
   const aqiInfo = getAQIStatus(current.pm25 ?? 18.2, lang);
 
   // Scrubber percentage for solar daylight progression
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const sunriseMinutes = 5 * 60 + 48; // 05:48
-  const sunsetMinutes = 17 * 60 + 54; // 17:54
-  const dayProgress = Math.min(100, Math.max(0, ((currentMinutes - sunriseMinutes) / (sunsetMinutes - sunriseMinutes)) * 100));
+  const [dayProgress, setDayProgress] = useState(0);
+  useEffect(() => {
+    const computeProgress = () => {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const sunriseMinutes = 5 * 60 + 48;
+      const sunsetMinutes = 17 * 60 + 54;
+      setDayProgress(Math.min(100, Math.max(0, ((currentMinutes - sunriseMinutes) / (sunsetMinutes - sunriseMinutes)) * 100)));
+    };
+    computeProgress();
+    const timer = setInterval(computeProgress, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <section className="active-station-section">

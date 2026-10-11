@@ -41,6 +41,14 @@ export default function Sidebar({
       isIot: true
     },
     {
+      id: 'pwt',
+      name: 'Purwokerto Sel.',
+      sub: 'Stasiun Banyumas',
+      temp: '29.2°C',
+      color: '#06b6d4',
+      cityObj: POPULAR_CITIES.find((c) => c.id === 'pwt')
+    },
+    {
       id: 'jkt',
       name: 'DKI Jakarta',
       sub: 'Stasiun BMKG Pusat',

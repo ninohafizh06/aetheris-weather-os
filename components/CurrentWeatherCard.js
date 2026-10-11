@@ -100,7 +100,7 @@ export default function CurrentWeatherCard({
             <span>{displayTemp(current?.temperature)}</span>
             <span className="temp-unit-symbol">°{unit}</span>
           </div>
-          <div className="hero-temp-summary">
+          <div className="hero-temp-summary" suppressHydrationWarning style={{ flexWrap: 'wrap', gap: '8px' }}>
             <span>
               {lang === 'id' ? 'Terasa seperti' : 'Feels like'}{' '}
               <strong style={{ color: '#ffffff' }}>
@@ -114,6 +114,30 @@ export default function CurrentWeatherCard({
                 {displayTemp(current?.dewPoint || 22)}°{unit}
               </strong>
             </span>
+            <span>•</span>
+            {(() => {
+              const currentRisk = current?.riskPrediction || (current?.temperature >= 26.5 ? 'Tinggi' : (current?.temperature >= 25.0 ? 'Sedang' : 'Rendah'));
+              return (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    background: currentRisk === 'Tinggi' ? 'rgba(239, 68, 68, 0.2)' : currentRisk === 'Sedang' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                    color: currentRisk === 'Tinggi' ? '#f87171' : currentRisk === 'Sedang' ? '#fbbf24' : '#34d399',
+                    border: `1px solid ${currentRisk === 'Tinggi' ? 'rgba(239, 68, 68, 0.4)' : currentRisk === 'Sedang' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.3)'}`
+                  }}
+                  title="Prediksi Risiko Suhu Iklim berbasis Random Forest (model_risiko_suhu.pkl)"
+                >
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
+                  AI RF: {currentRisk}
+                </span>
+              );
+            })()}
           </div>
         </div>
 

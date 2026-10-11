@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Download,
   Database,
@@ -20,7 +20,12 @@ export default function TelemetryLogsTable({
   onInjectAnomaly,
   lang = 'id'
 }) {
+  const [mounted, setMounted] = useState(false);
   const [filterText, setFilterText] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const filteredLogs = logs.filter((log) =>
     log.stationId?.toLowerCase().includes(filterText.toLowerCase()) ||
@@ -30,21 +35,25 @@ export default function TelemetryLogsTable({
 
   const exportCSV = () => {
     if (logs.length === 0) return;
-    const headers = ['ID', 'Station_ID', 'Timestamp', 'Temperature_C', 'Humidity_Pct', 'Pressure_hPa', 'WindSpeed_kmh', 'WindDir_Deg', 'RainRate_mmh', 'PM25_ugm3', 'Battery_V', 'Status'];
-    const rows = logs.map((l) => [
-      l.id,
-      l.stationId,
-      l.timestamp,
-      l.temperature,
-      l.humidity,
-      l.pressure,
-      l.windSpeed,
-      l.windDirection,
-      l.rainRate,
-      l.pm25,
-      l.batteryVoltage,
-      l.status
-    ]);
+    const headers = ['ID', 'Station_ID', 'Timestamp', 'Temperature_C', 'Humidity_Pct', 'Pressure_hPa', 'WindSpeed_kmh', 'WindDir_Deg', 'RainRate_mmh', 'PM25_ugm3', 'Battery_V', 'AI_Risk_RF', 'Status'];
+    const rows = logs.map((l) => {
+      const risk = l.riskPrediction || (l.temperature >= 26.5 ? 'Tinggi' : (l.temperature >= 25.0 ? 'Sedang' : 'Rendah'));
+      return [
+        l.id,
+        l.stationId,
+        l.timestamp,
+        l.temperature,
+        l.humidity,
+        l.pressure,
+        l.windSpeed,
+        l.windDirection,
+        l.rainRate,
+        l.pm25,
+        l.batteryVoltage,
+        risk,
+        l.status
+      ];
+    });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
@@ -137,8 +146,8 @@ export default function TelemetryLogsTable({
       </div>
 
       <div className="telemetry-table-wrapper">
-        <table className="telemetry-table">
-          <thead>
+        <table className="telemetry-table" suppressHydrationWarning>
+          <thead suppressHydrationWarning>
             <tr>
               <th>Waktu</th>
               <th>Node ID</th>
@@ -149,56 +158,99 @@ export default function TelemetryLogsTable({
               <th>Hujan</th>
               <th>PM2.5</th>
               <th>Baterai</th>
+              <th>Risiko AI (RF)</th>
               <th>Status</th>
             </tr>
           </thead>
-          <tbody>
-            {filteredLogs.slice(0, 10).map((l, idx) => (
-              <tr key={idx}>
-                <td style={{ color: '#93c5fd' }}>{l.timestamp}</td>
-                <td style={{ color: '#cbd5e1' }}>{l.stationId}</td>
-                <td style={{ color: '#fb923c', fontWeight: 600 }}>{l.temperature}°C</td>
-                <td style={{ color: '#38bdf8' }}>{l.humidity}%</td>
-                <td>{l.pressure} hPa</td>
-                <td>{l.windSpeed} km/h</td>
-                <td style={{ color: l.rainRate > 0 ? '#38bdf8' : '#64748b' }}>
-                  {l.rainRate > 0 ? `${l.rainRate} mm` : '0 mm'}
-                </td>
-                <td style={{ color: l.pm25 > 50 ? '#ef4444' : '#34d399' }}>{l.pm25} µg</td>
-                <td style={{ color: '#34d399' }}>{l.batteryVoltage}V</td>
-                <td>
-                  <span
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      background:
-                        l.status === 'CRITICAL'
-                          ? 'rgba(239, 68, 68, 0.2)'
-                          : l.status === 'WARNING'
-                          ? 'rgba(245, 158, 11, 0.2)'
-                          : 'rgba(16, 185, 129, 0.15)',
-                      color:
-                        l.status === 'CRITICAL'
-                          ? '#f87171'
-                          : l.status === 'WARNING'
-                          ? '#fbbf24'
-                          : '#34d399',
-                      border: `1px solid ${
-                        l.status === 'CRITICAL'
-                          ? 'rgba(239, 68, 68, 0.4)'
-                          : l.status === 'WARNING'
-                          ? 'rgba(245, 158, 11, 0.4)'
-                          : 'rgba(16, 185, 129, 0.3)'
-                      }`
-                    }}
-                  >
-                    {l.status}
-                  </span>
+          <tbody suppressHydrationWarning>
+            {!mounted ? (
+              <tr>
+                <td colSpan={11} style={{ textAlign: 'center', color: '#94a3b8', padding: '16px' }}>
+                  Memuat log telemetri sensor...
                 </td>
               </tr>
-            ))}
+            ) : (
+              filteredLogs.slice(0, 10).map((l, idx) => {
+                const risk = l.riskPrediction || (l.temperature >= 26.5 ? 'Tinggi' : (l.temperature >= 25.0 ? 'Sedang' : 'Rendah'));
+                return (
+                  <tr key={idx}>
+                  <td style={{ color: '#93c5fd' }}>{l.timestamp}</td>
+                  <td style={{ color: '#cbd5e1' }}>{l.stationId}</td>
+                  <td style={{ color: '#fb923c', fontWeight: 600 }}>{l.temperature}°C</td>
+                  <td style={{ color: '#38bdf8' }}>{l.humidity}%</td>
+                  <td>{l.pressure} hPa</td>
+                  <td>{l.windSpeed} km/h</td>
+                  <td style={{ color: l.rainRate > 0 ? '#38bdf8' : '#64748b' }}>
+                    {l.rainRate > 0 ? `${l.rainRate} mm` : '0 mm'}
+                  </td>
+                  <td style={{ color: l.pm25 > 50 ? '#ef4444' : '#34d399' }}>{l.pm25} µg</td>
+                  <td style={{ color: '#34d399' }}>{l.batteryVoltage}V</td>
+                  <td>
+                    <span
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.02em',
+                        background:
+                          risk === 'Tinggi'
+                            ? 'rgba(239, 68, 68, 0.22)'
+                            : risk === 'Sedang'
+                            ? 'rgba(245, 158, 11, 0.22)'
+                            : 'rgba(16, 185, 129, 0.2)',
+                        color:
+                          risk === 'Tinggi'
+                            ? '#f87171'
+                            : risk === 'Sedang'
+                            ? '#fbbf24'
+                            : '#34d399',
+                        border: `1px solid ${
+                          risk === 'Tinggi'
+                            ? 'rgba(239, 68, 68, 0.45)'
+                            : risk === 'Sedang'
+                            ? 'rgba(245, 158, 11, 0.45)'
+                            : 'rgba(16, 185, 129, 0.35)'
+                        }`
+                      }}
+                    >
+                      {risk}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        background:
+                          l.status === 'CRITICAL'
+                            ? 'rgba(239, 68, 68, 0.2)'
+                            : l.status === 'WARNING'
+                            ? 'rgba(245, 158, 11, 0.2)'
+                            : 'rgba(16, 185, 129, 0.15)',
+                        color:
+                          l.status === 'CRITICAL'
+                            ? '#f87171'
+                            : l.status === 'WARNING'
+                            ? '#fbbf24'
+                            : '#34d399',
+                        border: `1px solid ${
+                          l.status === 'CRITICAL'
+                            ? 'rgba(239, 68, 68, 0.4)'
+                            : l.status === 'WARNING'
+                            ? 'rgba(245, 158, 11, 0.4)'
+                            : 'rgba(16, 185, 129, 0.3)'
+                        }`
+                      }}
+                    >
+                      {l.status}
+                    </span>
+                  </td>
+                </tr>
+              );
+            }))}
           </tbody>
         </table>
       </div>
